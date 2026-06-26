@@ -12,6 +12,10 @@ __pycache__/
 venv/
 env/
 
+# Frontend (web/) - installed deps and build output are never committed
+web/node_modules/
+web/dist/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
