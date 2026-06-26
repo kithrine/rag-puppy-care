@@ -17,7 +17,6 @@ Groq-hosted model. The key is read from the environment (loaded from a local
 """
 
 import os
-import re
 from pathlib import Path
 
 # Third-party libraries (install with: pip install scikit-learn openai numpy).
@@ -25,6 +24,10 @@ import numpy as np
 from openai import OpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# Local: ingest.py owns Stage 1 (multi-format loading + chunking). rag_core
+# depends on ingest, never the reverse, so there is no circular import.
+from app import ingest
 
 # ---------------------------------------------------------------------------
 # Configuration (the "knobs" you can tune). Keeping them at the top, in one
@@ -75,82 +78,18 @@ class MissingAPIKeyError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# STAGE 1: Loading + chunking
+# STAGE 1: Loading + chunking (delegated to ingest.py)
 # ---------------------------------------------------------------------------
 
-def load_documents(data_dir=DATA_DIR):
-    """Read every .txt file in `data_dir` from disk.
+def load_chunks(data_dir=DATA_DIR):
+    """Load the knowledge base into a flat list of chunk records.
 
-    Returns a list of (filename, full_text) pairs, e.g.
-        [("feeding.txt", "Puppies need..."), ("grooming.txt", "...")]
-
-    Why keep the filename? Later, when we retrieve a chunk, we want to tell the
-    user WHICH document it came from (its "source"). If we throw the filename
-    away now, we can't show it later.
+    Each record looks like {"source": "feeding.txt", "text": "Puppies need..."}
+    with an optional "title". The actual multi-format work (.txt/.md/.json/.pdf)
+    lives in ingest.py; this thin wrapper is the single entry point every
+    front-end (CLI today, FastAPI next) calls, so they all index the same chunks.
     """
-    documents = []
-
-    # Path(...).glob("*.txt") finds every file ending in .txt inside the folder.
-    # We sort() the results so the order is identical on every run. Deterministic
-    # order makes debugging far easier - the same input always looks the same.
-    for path in sorted(Path(data_dir).glob("*.txt")):
-        # Always pass encoding="utf-8". Without it, Python falls back to the OS
-        # default encoding, which differs between machines and can corrupt
-        # characters like curly quotes or accents.
-        text = path.read_text(encoding="utf-8")
-
-        # path.name is just the filename ("feeding.txt"), without the folder.
-        documents.append((path.name, text))
-
-    return documents
-
-
-def chunk_text(text):
-    """Split ONE document's text into paragraph-sized chunks.
-
-    Our files separate paragraphs with a blank line, so a blank line is a
-    natural place to cut. Each resulting chunk is one self-contained idea -
-    exactly the unit we want to retrieve later.
-
-    Why chunk at all? If we treated a whole file as one block, a question about
-    rabies timing would match the ENTIRE vaccinations file - including unrelated
-    paragraphs about side effects. Smaller chunks = sharper, more focused
-    retrieval.
-    """
-    # The regex r"\n\s*\n" means: a newline, then any amount of whitespace, then
-    # another newline - i.e. "a blank line". Using \s* (rather than nothing)
-    # makes us tolerant of lines that contain stray spaces or tabs but otherwise
-    # look blank.
-    raw_chunks = re.split(r"\n\s*\n", text)
-
-    # Two cleanups in one line:
-    #   1. .strip() trims leading/trailing whitespace and newlines from each
-    #      chunk so we don't carry around ragged edges.
-    #   2. `if chunk.strip()` drops empty chunks. Every file ends with a blank
-    #      line, which would otherwise leave an empty string at the end.
-    chunks = [chunk.strip() for chunk in raw_chunks if chunk.strip()]
-
-    return chunks
-
-
-def build_chunks(documents):
-    """Turn loaded documents into a flat list of chunk records.
-
-    Each record is a small dictionary:
-        {"source": "feeding.txt", "text": "Puppies need..."}
-
-    We use a dictionary (instead of a bare tuple) because `chunk["source"]` and
-    `chunk["text"]` are self-explanatory when you re-read the code later. And we
-    keep ONE flat list - rather than lists grouped by file - because the
-    retrieval step scores every chunk together, regardless of its source file.
-    """
-    chunks = []
-
-    for filename, text in documents:
-        for chunk in chunk_text(text):
-            chunks.append({"source": filename, "text": chunk})
-
-    return chunks
+    return ingest.load_chunks(data_dir)
 
 
 # ---------------------------------------------------------------------------

@@ -47,14 +47,16 @@ def main():
     # Build the knowledge base once at startup (load -> chunk -> TF-IDF index).
     # Doing this a single time (not per question) matters: fitting the vectorizer
     # is the expensive part, and the index never changes between questions.
-    documents = rag_core.load_documents()
-    chunks = rag_core.build_chunks(documents)
+    chunks = rag_core.load_chunks()
     vectorizer, tfidf_matrix = rag_core.build_index(chunks)
+
+    # Count distinct source files for the banner (one file can yield many chunks).
+    num_files = len({chunk["source"] for chunk in chunks})
 
     # Friendly startup banner so the user knows what is loaded and how to quit.
     print("=" * 64)
     print("  Puppy Care RAG - ask questions about caring for your puppy")
-    print(f"  Knowledge base: {len(chunks)} chunks from {len(documents)} files")
+    print(f"  Knowledge base: {len(chunks)} chunks from {num_files} files")
     print(f"  Model: {rag_core.MODEL} (via Groq)")
     print("  Type a question, or 'quit' to exit.")
     print("=" * 64)
