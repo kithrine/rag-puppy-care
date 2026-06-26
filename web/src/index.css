@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens (Tailwind v4 is CSS-first: these generate utilities like
+   bg-paper, text-ink, font-display, etc.). Aesthetic: a warm "field guide" -
+   cream paper, espresso ink, a single golden-retriever honey accent.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+
+  --color-paper: #fbf7f0;
+  --color-paper-deep: #f1e7d6;
+  --color-card: #fffdf8;
+  --color-ink: #2b2620;
+  --color-muted: #8a7e6b;
+  --color-honey: #d98e2b;
+  --color-honey-soft: #f6e2bb;
+  --color-clay: #bb5e3a;
+  --color-sage: #7c8a6b;
+  --color-line: #ebe1cf;
+}
+
+/* ---------------------------------------------------------------------------
+   Base canvas: warm paper with a soft radial glow and a faint grain overlay
+   so the background has depth instead of a flat fill.
+--------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(120% 80% at 50% -10%, #fff8ea 0%, rgba(255, 248, 234, 0) 55%),
+    radial-gradient(90% 60% at 100% 0%, #fbe6c8 0%, rgba(251, 230, 200, 0) 45%);
+  background-attachment: fixed;
+}
+
+/* Subtle film grain via an SVG noise overlay (pointer-events: none). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Motion: one orchestrated entrance plus a small "thinking" indicator.
+--------------------------------------------------------------------------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* A gentle, readable scrollbar that fits the paper theme. */
+.scroll-soft::-webkit-scrollbar {
+  width: 10px;
+}
+.scroll-soft::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 9999px;
+  border: 3px solid var(--color-paper);
+}
