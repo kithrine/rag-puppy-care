@@ -1,9 +1,11 @@
 """
-rag.py - A tiny, from-scratch Retrieval-Augmented Generation (RAG) app.
+rag_core.py - The importable core of our tiny Retrieval-Augmented Generation app.
 
-We build this file up in STAGES so you can see how RAG works one piece at a
-time. It now contains all the core pieces: loading + chunking (Stage 1),
-TF-IDF retrieval (Stage 2), and the LLM answer step (Stage 3).
+This module holds the whole RAG pipeline as plain, importable functions so it can
+be shared by more than one front-end: the command-line app (app/cli.py) today,
+and a FastAPI web layer later. Nothing here reads from stdin, prints a banner, or
+exits the process - those are a caller's job. Keeping the core free of I/O side
+effects is what lets the same logic power both a terminal loop and an HTTP handler.
 
 The big picture of RAG:
   1. RETRIEVE - find the passages in YOUR documents most relevant to a question.
@@ -12,14 +14,10 @@ The big picture of RAG:
 We point the OpenAI SDK at Groq's API, so the same `openai` library talks to a
 Groq-hosted model. The key is read from the environment (loaded from a local
 .env file), never hardcoded.
-
-Run it with:  python rag.py
-(after `pip install -r requirements.txt` and putting your key in a .env file).
 """
 
 import os
 import re
-import sys
 from pathlib import Path
 
 # Third-party libraries (install with: pip install scikit-learn openai numpy).
@@ -65,6 +63,15 @@ SYSTEM_PROMPT = (
     "sentence and nothing else:\n"
     f"{NO_ANSWER}"
 )
+
+
+class MissingAPIKeyError(RuntimeError):
+    """Raised when GROQ_API_KEY is not set.
+
+    The core never decides HOW to report a missing key - a CLI may print a
+    friendly hint and exit, while a web server may want to fail startup or
+    return an HTTP error. So we raise, and let each caller choose.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -248,16 +255,13 @@ def make_client():
     The OpenAI SDK is "OpenAI-compatible" and Groq exposes a matching endpoint,
     so we keep the familiar OpenAI() client but swap in Groq's base_url. The key
     comes from the environment (which load_env_file may have just populated). If
-    it is missing we print a friendly hint and exit, rather than letting the SDK
-    throw a confusing error later on.
+    it is missing we raise MissingAPIKeyError rather than printing or exiting -
+    the core has no business killing the process. The caller (CLI or web server)
+    catches this and reports it however suits that front-end.
     """
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        print("ERROR: GROQ_API_KEY is not set.")
-        print("Create a file named '.env' in this folder containing one line:")
-        print("    GROQ_API_KEY=gsk_your_key_here")
-        print("(Tip: copy .env.example to .env and paste your real key in.)")
-        sys.exit(1)
+        raise MissingAPIKeyError("GROQ_API_KEY is not set")
     return OpenAI(api_key=api_key, base_url=BASE_URL)
 
 
@@ -295,83 +299,43 @@ def generate_answer(question, results, client):
 
 
 # ---------------------------------------------------------------------------
-# The application: tie every stage together into one interactive loop.
+# Orchestration: one entry point that ties retrieve + the two guards + generate
+# together, so every front-end gets IDENTICAL grounding behavior.
 # ---------------------------------------------------------------------------
 
-def main():
-    """Run the interactive question-and-answer loop.
+def answer_question(question, vectorizer, tfidf_matrix, chunks, client, top_k=TOP_K):
+    """Answer one `question` end-to-end, applying the grounding guards.
 
-    Each turn: read a question -> retrieve the top chunks -> show their
-    sources/scores -> refuse if nothing relevant, otherwise ask the LLM to
-    answer using only those chunks.
+    Returns a dict:
+        {
+          "answer":  str,   # the model's answer, OR the verbatim NO_ANSWER text
+          "refused": bool,  # True when the score guard refused (no API call)
+          "results": [(chunk, score), ...],  # what retrieval found, best first
+        }
+
+    Why centralize this here (rather than in each caller)? The grounding rules -
+    the score-threshold guard and the verbatim refusal string - are a graded
+    requirement and must behave identically in the CLI and the web API. Putting
+    the sequence in ONE place means there is a single source of truth; callers
+    only decide how to PRESENT the result.
+
+    We return the raw `results` (not a pre-formatted snippet) so each front-end
+    can render sources its own way: the CLI builds a 120-char preview, while the
+    web API will derive {source, score, snippet} from the same data.
     """
-    # On Windows the console often defaults to a legacy encoding (cp1252) that
-    # cannot print every character an LLM may return (curly quotes, em dashes,
-    # thin spaces, ...). Switch our output stream to UTF-8 so answers always
-    # print cleanly instead of crashing with a UnicodeEncodeError.
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
+    # RETRIEVE first - we always want the sources, even when we end up refusing,
+    # so a caller can show what (little) the documents had to offer.
+    results = retrieve(question, vectorizer, tfidf_matrix, chunks, top_k=top_k)
 
-    # Make the API key available (.env -> environment), then build the client.
-    # We do this FIRST so we fail fast with a clear message if the key is
-    # missing, before spending time building the index.
-    load_env_file()
-    client = make_client()
+    # GUARD 1 (cheap, local): if even the best chunk is a weak match, the
+    # documents almost certainly do not cover this question. Refuse here, with
+    # NO API call, returning the exact NO_ANSWER sentence.
+    best_score = results[0][1] if results else 0.0
+    if best_score < SCORE_THRESHOLD:
+        return {"answer": NO_ANSWER, "refused": True, "results": results}
 
-    # Build the knowledge base once at startup (load -> chunk -> TF-IDF index).
-    # Doing this a single time (not per question) matters: fitting the vectorizer
-    # is the expensive part, and the index never changes between questions.
-    documents = load_documents()
-    chunks = build_chunks(documents)
-    vectorizer, tfidf_matrix = build_index(chunks)
-
-    # Friendly startup banner so the user knows what is loaded and how to quit.
-    print("=" * 64)
-    print("  Puppy Care RAG - ask questions about caring for your puppy")
-    print(f"  Knowledge base: {len(chunks)} chunks from {len(documents)} files")
-    print(f"  Model: {MODEL} (via Groq)")
-    print("  Type a question, or 'quit' to exit.")
-    print("=" * 64)
-
-    # The main loop. Each pass through handles exactly one question.
-    while True:
-        try:
-            question = input("\nAsk a question (or 'quit'): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            # EOFError = the input stream ended (e.g. piped input ran out);
-            # KeyboardInterrupt = Ctrl-C. Either way, leave cleanly.
-            print("\nGoodbye!")
-            break
-
-        if question.lower() in {"quit", "exit", "q"}:
-            print("Goodbye!")
-            break
-        if not question:
-            continue  # empty line: just show the prompt again
-
-        # RETRIEVE: find the most relevant chunks and show them BEFORE answering,
-        # so the sources behind every answer are always visible.
-        results = retrieve(question, vectorizer, tfidf_matrix, chunks)
-        print("\nRetrieved sources:")
-        for rank, (chunk, score) in enumerate(results, start=1):
-            preview = chunk["text"][:SNIPPET_LEN].replace("\n", " ")
-            print(f"  {rank}. [{chunk['source']}]  score={score:.3f}")
-            print(f"     {preview}...")
-
-        # GUARD 1 (cheap, local): if even the best chunk is a weak match, the
-        # documents almost certainly do not cover this question. Refuse here,
-        # with NO API call.
-        best_score = results[0][1] if results else 0.0
-        if best_score < SCORE_THRESHOLD:
-            print(f"\nAnswer: {NO_ANSWER}\n")
-            continue
-
-        # GUARD 2 (semantic): otherwise let the model answer. Its instructions
-        # force it to use only the chunks above, and to return the same NO_ANSWER
-        # sentence if they do not actually contain the answer.
-        answer = generate_answer(question, results, client)
-        print(f"\nAnswer: {answer}\n")
-
-
-if __name__ == "__main__":
-    main()
+    # GUARD 2 (semantic): otherwise let the model answer. Its instructions force
+    # it to use only the chunks above, and to return the same NO_ANSWER sentence
+    # if they do not actually contain the answer.
+    answer = generate_answer(question, results, client)
+    return {"answer": answer, "refused": False, "results": results}
