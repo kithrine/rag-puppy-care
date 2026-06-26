@@ -1,3 +1,9 @@
+---
+title: Feeding Your Puppy
+topic: nutrition
+---
+# Feeding Your Puppy
+
 Puppies need food specifically formulated for growth, not adult dog food. Puppy food is more energy dense and has the right balance of protein, fat, calcium, and phosphorus to fuel rapid development and healthy bones. Feeding adult food to a puppy can lead to nutritional gaps during the most important growth period of their life. The single most useful thing to look for on the bag is the AAFCO nutritional adequacy statement, which should say the food is complete and balanced for "growth" or for "all life stages." That statement is your assurance that the food meets established minimums for a growing dog.
 
 Read the ingredient label with a few simple priorities. A named animal protein, such as chicken, beef, or salmon, should be at or near the top of the list rather than a vague term like "meat by-products" or a pile of fillers. Beyond that, fancy marketing words like "premium," "holistic," or "human grade" are not regulated and don't guarantee quality. The AAFCO growth statement and a sensible ingredient list tell you far more than the front-of-bag claims.
