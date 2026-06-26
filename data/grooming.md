@@ -1,3 +1,9 @@
+---
+title: Grooming Your Puppy
+topic: grooming
+---
+# Grooming Your Puppy
+
 Start grooming your puppy early, even before they really need it, so they get comfortable being handled. Regularly touching their paws, ears, mouth, belly, and tail, and pairing each touch with treats and praise, makes future grooming and vet visits far less stressful for their whole life. The goal at this age is less about the actual grooming and more about teaching your puppy that being handled all over is normal and pleasant, so that nail trims, exams, and brushing aren't a battle later.
 
 Keep early grooming sessions short, gentle, and rewarding. Introduce tools like the brush, nail clippers, and toothbrush by letting your puppy sniff them and earn treats before you ever use them, then build up in tiny steps. If your puppy gets squirmy or stressed, stop while it's still a positive experience and try again later rather than forcing it through. Many lifelong grooming struggles come from rushing a frightened puppy, while a little patience now pays off for years.

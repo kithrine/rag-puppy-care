@@ -1,3 +1,9 @@
+---
+title: Socializing Your Puppy
+topic: behavior
+---
+# Socializing Your Puppy
+
 Socialization means safely and positively exposing your puppy to lots of different people, animals, sounds, places, surfaces, and experiences while they're young, so they grow into a confident, well-adjusted adult dog. It is one of the most important things you can do in the first few months, and the veterinary behavior community considers it essential rather than optional. Good early socialization is the single best way to prevent fear, anxiety, and reactivity later in life, and behavioral problems, not infectious disease, are the most common reason young dogs lose their homes.
 
 There's a critical window for socialization that runs roughly from 3 weeks to about 14 weeks of age, sometimes extending to 16 weeks. During this period a puppy's brain is primed to accept new things as normal, and their natural curiosity outweighs their fear. The American Veterinary Society of Animal Behavior identifies the first three months of life as the primary window of opportunity, and experiences during this time shape how your puppy reacts to the world for the rest of their life. After this window closes, new things are more likely to be met with caution or fear, so the same exposure that would have been easy at 9 weeks becomes much harder at 6 months.
